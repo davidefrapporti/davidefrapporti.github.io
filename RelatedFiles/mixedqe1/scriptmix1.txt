@@ -1,0 +1,597 @@
+//First of all we have to find, for each K^2, all the possible
+//baskets of singularities. 
+//We know that K^2=8-s-5t/2, where s in the number of nodes,
+//while t is the number of A_3 singularities of X
+
+Sings:=function(Ksquare) 
+SetSing:={};
+for t in {0,2} do for s in [0..7] do
+    K:=8-s-(5/2)*t;
+    if K eq Ksquare then
+    Include(~SetSing,[t,s]); break s;
+end if; end for; end for;
+return SetSing;
+end function;
+
+//Now we need invariants Theta and beta of a type
+
+Theta:=function(sig)
+a:=-2; 
+for m in sig do a+:=(1-1/m); end for;
+return a;
+end function;
+
+Beta:=func<Ksquare, T | Ksquare/(2*T)>;
+
+//These two transform a multiset, resp. a tuple  into a sequence
+
+MsetToSeq:=function(mset)
+seq:=[ ]; 
+while #mset ne 0 do Append(~seq, Minimum(mset)); 
+Exclude(~mset, Minimum(mset)); end while;
+return seq;
+end function;
+
+TupleToSeq:=function(tuple)
+seq:=[];
+for el in Tuplist(tuple) do
+Append(~seq,el);
+end for;
+return seq;
+end function;
+
+//The function ListTypes calculate all the types that fulfill the 
+//conditions imposed by Proposition 3.4 and Lemma 3.5
+
+ListTypes:=function(sing,Ksquare)
+t:=sing[1]; s:=sing[2];  n:= 2*s+t; list:=[];
+Rmax:=(IntegerRing()!Ksquare)+5;
+for R in [3..Rmax-1] do
+    M:=Max(1/6,(R-3)/2);
+    MaxCoeff:=Floor((IntegerRing()!Ksquare + 1)/M);
+    for type1 in Multisets({x: x in [2..MaxCoeff]},R) do
+    type:=MsetToSeq(type1); Th:=Theta(type);
+    if Th gt 0 then B:=Beta(Ksquare,Th);
+    if B in IntegerRing() and B ge 1 then
+    if forall{m : m in type | (2*B)/m in IntegerRing()} then
+    bads:=0;
+    for q in type do if B/q notin IntegerRing() then bads+:=1;
+    end if; end for;
+    if bads le Floor(n/2) then
+    if (Ksquare/(Th^2)) in IntegerRing() then
+    Append(~list,type);
+end if; end if; end if; end if;end if; end for;	end for;
+return list;
+end function;
+
+//ListOfTypes returns, for given K^2, all possible baskets (using Sings)
+//and for each basket all the possible types (using ListTypes)
+
+ListOfTypes:=function(Ksquare)
+list:=[];
+for sing in Sings(Ksquare) do
+L:=ListTypes(sing,Ksquare);
+Append(~list,[*sing, L*]);
+end for;
+return list;
+end function;
+
+//This extract from a finite group the elements of a certain order
+
+ElsOfOrd:=func<group, order | {g: g in group| Order(g) eq order}>;
+
+//TuplesOfGivenOrder create a sequence of the same length as the 
+//input sequence seq, whose entries are subsets of the group in
+//the input, and precisely the subsets of elements of order 
+//the corresponding entry of seq
+
+TuplesOfGivenOrders:=function(group,seq)
+SEQ:=[];
+for i in [1..#seq] do
+if IsEmpty(ElsOfOrd(group,seq[i])) then SEQ:=[]; break i;
+else Append(~SEQ,ElsOfOrd(group,seq[i]));
+end if; end for;
+return SEQ;
+end function;
+
+//This says if a group has a set of spherical generators of the given type
+
+ExSphGens:=function(group,type)
+test:=false;
+SetCands:=TuplesOfGivenOrders(group,Prune(type));
+if not IsEmpty(SetCands) then
+for cands in CartesianProduct(SetCands) do
+    if Order(&*cands) eq type[#type] then
+    if #sub<group|TupleToSeq(cands)> eq #group then
+    test:=true; break cands;
+end if; end if; end for; end if;
+return test;
+end function;
+
+//Polygonal builds the polygonal group of the signature given by seq
+
+Polygonal:=function(seq)
+F:=FreeGroup(#seq);  Rel:={F![1..#seq]};
+for i in [1..#seq] do  Include(~Rel,F.i^(seq[i])); end for;
+return quo<F|Rel>;
+end function;
+
+//Test and TestBAD serch among all the groups of the order in input 
+//which groups have a spherical system of generators of the
+//type in input. These function work in two steps (see Remark 5.8):
+//i)they check  which  groups
+//   have abelianization isomorphic to a quotient of the 
+//   abelianization of the polygonal group given by the type;
+//ii)if a group passes the first step the scripts
+//   check if it has a spherical system of generators of the
+//   type in input.
+//These two scripts make exactly the same controls, and we use
+//Test in general, but in same case there are to much
+//isomorphism classes of groups of the given order and we
+//use TestBAD because, SmallGroupProcess is slower than
+//SmallGroups but it use very few memory
+
+Test:=function(type, order)
+group:=AbelianQuotient(Polygonal(type));
+checked:={}; quo:={}; set:={};
+for g in Subgroups(group) do 
+Include(~quo, group/(g`subgroup)); end for;
+for h in quo do Include(~set,#h); end for;
+i:=1;
+for H in SmallGroups(order: Warning:=false) do
+    if #AbelianQuotient(H) in set then
+    for p in quo do
+    if IsIsomorphic(p, AbelianQuotient(H)) then
+    if ExSphGens(H,type) then
+    Include(~checked,i); end if;
+    break p;end if;  end for; end if;
+i+:=1; end for;
+return checked;
+end function;
+
+TestBAD:=function(type, order)
+group:=AbelianQuotient(Polygonal(type));
+checked:={}; quo:={}; set:={};
+for g in Subgroups(group) do 
+Include(~quo, group/(g`subgroup)); end for; 
+for h in quo do Include(~set,#h); end for;    
+i:=1; P:= SmallGroupProcess(order);
+repeat
+H := Current(P);
+  if #AbelianQuotient(H) in set then
+  for p in quo do
+  if IsIsomorphic(p, AbelianQuotient(H)) then
+  if ExSphGens(H,type) then
+  Include(~checked,i); end if;
+  break p;end if; end for; end if;
+i+:=1; Advance(~P);
+until IsEmpty(P);
+return checked;
+end function;
+
+//The next script takes a sequence of elements of a group 
+//and a further element g and conjugates each element 
+//of the sequence with g.
+
+Conjug:=function(seq,el)
+output:=[];
+for h in seq do Append(~output,h^el); end for;
+return output;
+end function;
+
+//SphGenUpToConj computes all possible set of spherical 
+//generators of a group of a prescribed type and return 
+//(to spare memory) only one of these sets for each conjugacy class
+
+SphGenUpToConj:=function(group,seq)
+Set:={ }; Rep:={ }; 
+SetCands:=TuplesOfGivenOrders(group,Prune(seq));
+if not IsEmpty(SetCands) then
+for cands in CartesianProduct(SetCands) do
+    if Order(&*cands) eq seq[#seq] then
+    if Append(TupleToSeq(cands),(&*cands)^-1) notin Set then
+    if sub<group|TupleToSeq(cands)> eq group then
+    Include(~Rep, Append(TupleToSeq(cands),(&*cands)^-1));
+    for g in group do
+    Include(~Set, Conjug(Append(TupleToSeq(cands),(&*cands)^-1),g));
+end for;  end if; end if; end if; end for; end if;
+return Rep;
+end function;
+
+//CheckSingsH checks if a pair of set of spherical generators 
+//of groupH gives a surface Y=(CxC)/G^0 with the expected 
+//singularities: s+2t nodes, s in the number of nodes
+//and t is the number of A_3 singularities of X.
+//It returns also a set with the "position" of the nodes.
+
+CheckSingsH:=function(sing, gens1, gens2, groupH)
+test:=true;  Nodes:={* *}; n:=(sing[1]+2*sing[2]);
+for i in [1..#gens1] do gen1:=gens1[i];
+for j in [1..#gens2] do gen2:=gens2[j];
+for d1 in [1..Order(gen1)-1] do
+for d2 in [1..Order(gen2)-1] do
+    if IsConjugate(groupH, gen1^d1, (gen2^d2)) then
+    if Order(gen1^d1) ge 3 then test:= false;  break i;
+    else Include(~Nodes, [i,j]^^(IntegerRing()!(Order(groupH)
+                           /(2*d1*d2*#Conjugates(groupH,gen1^d1)))));
+    if #Nodes gt n then test:=false;  break i;
+end if; end if; end if; end for; end for; end for; end for;
+if test then
+if #Nodes ne n then test:=false; 
+end if; end if;
+if not test then Nodes:={* *}; end if;
+return test, Nodes;
+end function;
+
+//These checks if a group has a pair of set of spherical 
+//generators of groupH gives a surface Y=(CxC)/G^0 with 
+//the expected singularities
+
+SingularitiesY:=function(sing,type, groupH)
+s:=SetToSequence(SphGenUpToConj(groupH,type));
+c:=1; test:= false;
+for i in [1..#s] do   gens1:=s[i];
+for j in [c..#s] do   gens2:=s[j];
+    if CheckSingsH(sing,gens1,gens2, groupH) then
+    test:=true; break i;
+end if;  end for; c+:=1; end for;
+return test;
+end function;
+
+//GroupExtension checks if the given group groupH has some unsplit
+//extension of degree 2, and returns all pairs [G,i] where G is 
+//an extension of groupH, and i is the identifier of groupH as subgroup of G
+
+GroupExtension:=function(groupH)
+ordG:= 2*Order(groupH); ext:=[* *];
+card:=#{x: x in groupH | Order(x) eq 2};
+for G in SmallGroups(ordG: Warning := false) do
+    if  #{x: x in G | Order(x) eq 2}eq card then  
+    temp:=LowIndexSubgroups(G,2);
+    for i in [2..#temp] do
+    if IdentifyGroup(temp[i]) eq IdentifyGroup(groupH) then
+    Append(~ext, [* IdentifyGroup(G), i*]);
+end if; end for; end if; end for;
+return ext;   
+end function;
+
+//ListGroups lists in checked all possible triples 
+//(basket, type, group G/subgroup H); it lists in 
+//limbo the triples  basket, type, group H, where H has 
+//a pair of sets of spherical generators of groupH 
+//gives a surface Y=(CxC)/G^0 with the expected
+//singularities, but we can not check the extensions;
+//it lists in tocheck the triples basket, type, order H, 
+//if order H is bigger than 2000 or it is 1024
+
+ListGroups:=function(Ksquare: badorders1:={256,384,512,576},badorders2:={1152})
+checked:=[* *]; tocheck:=[* *]; limbo:=[* *];
+for pair in ListOfTypes(Ksquare) do
+sing:=pair[1]; setoftypes:=pair[2];
+for type in setoftypes do
+ordH:=IntegerRing()!(Ksquare/((Theta(type))^2));
+if [2,3,7] eq type and NumberOfGroups(PerfectGroupDatabase(),ordH) eq 0 then ;
+elif (ordH gt 2000) or (ordH eq 1024) then
+     Append(~tocheck, [* sing, type, ordH *]);
+elif ordH in {1001..2000} and (ordH in Include(badorders2,1024)) then
+     for p in TestBAD(type, ordH)  do
+     H:=SmallGroup(ordH,p);
+     if SingularitiesY(sing,type,H) then
+     Append(~limbo, [* sing, type, <ordH, p>*]);  end if;
+     end for;
+elif ordH in {1001..2000} and (ordH notin Include(badorders2,1024)) then
+     for p in Test(type, ordH)  do
+     H:=SmallGroup(ordH,p);
+     if SingularitiesY(sing,type,H) then
+     Append(~limbo, [* sing, type, <ordH, p>*]);  end if;
+     end for;
+elif ordH in badorders1 then
+     for p in TestBAD(type, ordH)  do
+     H:=SmallGroup(ordH,p);
+     if SingularitiesY(sing,type, H) then
+     extensions:=GroupExtension(H);
+     if not IsEmpty(extensions) then
+     Append(~checked, [* sing, type, extensions *]);
+     end if;end if;  end for;
+else for p in Test(type, ordH)  do
+     H:=SmallGroup(ordH,p);
+     if SingularitiesY(sing,type, H) then
+     extensions:=GroupExtension(H);
+     if not IsEmpty(extensions) then
+     Append(~checked, [* sing, type, extensions *]);
+     end if; end if;  end for;
+end if;  end for; end for;
+return checked, limbo, tocheck;
+end function;
+
+//CheckSingsG checks if a of set of elements of groupG that is a
+//system of spherical generators of groupH gives 
+//a surface X=(CxC)/G with the expected singularities
+
+CheckSingsG:=function(sing, gens, groupH, groupG) 
+el:=[g: g in groupG | g notin groupH][1]; 
+test:=true;  branches:=0; n:=(sing[1]+2*sing[2]); gens2:=[];
+for i in [1..#gens] do Append(~gens2, gens[i]^el); end for;
+test, Nodes:=CheckSingsH(sing,gens,gens2,groupH);
+if test then
+for k in [1..#gens] do gen:=gens[k];
+    if [k,k] in Nodes then
+    count:=0;
+    for h in groupH do if Order(h*el) eq 4 then
+    if IsConjugate(groupH, (h*el)^2, gen^(IntegerRing()!(Order(gen)/2))) then
+    count +:=1; end if; end if; end for;
+    branches +:= (count/(Order(gen)*
+             #Conjugates(groupH,gen^(IntegerRing()!(Order(gen)/2)))));
+    if branches gt sing[1] then test:=false; break k;
+end if; end if; end for; end if;
+if test then
+if branches ne sing[1] then test:=false;
+end if; end if;
+return test;
+end function;
+
+//ExistingSurfaces returns all the triple (basket, type, group G /subgroup H)
+//that gives at least a surface with the correct singularities
+
+ExistingSurfaces:=function(Ksquare)
+M:=[* *]; Pass:={};
+list,limbo,tocheck:=ListGroups(Ksquare);
+for triple in list do
+sing:=triple[1]; type:=triple[2]; listOfG:=triple[3];  
+for idgroupG in listOfG do  test:=false;
+    G:=SmallGroup(idgroupG[1][1], idgroupG[1][2]);
+    H:=LowIndexSubgroups(G,2)[idgroupG[2]];
+    if [IdentifyGroup(G),IdentifyGroup(H)] notin Pass then
+    SetGens:=SphGenUpToConj(H,type); //all the s.g.s. of H seen in G!
+    for gens in SetGens do
+    if CheckSingsG(sing, gens, H, G) then test:=true;
+break gens;  end if; end for;
+if test then
+Append(~M, [* sing, type, idgroupG *]);  
+Include(~Pass,[IdentifyGroup(G),IdentifyGroup(H)]);
+end if; end if; end for; end for;
+return  M, limbo, tocheck;
+end function;
+
+//We still have not found all possible surfaces. In fact the output of
+//ExistingSurfaces(n) gives all possible triple (sing,type, idgroupG)
+//which give AT LEAST a surface with p_g=0 and K^2=n, but there could be,
+//more than one. In fact there is one surface for each spherical
+//generators of the prescribed types which passes the singularity test,
+//but they are often isomorphic. More precisely they are isomorphic if and
+//only if the spherical generators are equivalent for the equivalence
+//relation generated by the Hurwitz moves (on the set of generator)
+//and the automorhisms of the group (G!).
+//We need to construct orbits for this equivalence relation.
+
+//The next scripts create the Automorphism Group of a group as an explicit
+//set.
+
+AutGr:= function(gr)
+Aut:=AutomorphismGroup(gr); A:={ Aut!1 };
+repeat
+for g1 in Generators(Aut) do
+for g2 in A do
+Include(~A,g1*g2);
+end for; end for;
+until  #A eq #Aut;
+return A;
+end function;
+
+//The next one create the Hurwitz move
+
+HurwitzMove:= func<seq,idx|Insert(Remove(seq,idx),idx+1,seq[idx]^seq[idx+1])>;
+
+// This one, starting from a sequence of elements of a group,
+// creates all sequences of elements which are equivalent to the given one
+// for the equivalence relation generated by the Hurwitz moves, 
+// and return (to spare memory) only the ones whose entries have never 
+// decreasing order.
+
+HurwitzOrbit:=function(seq)
+orb:={ }; shortorb:={  }; Trash:={ seq };
+repeat
+      ExtractRep(~Trash,~gens); Include(~orb, gens);
+      for k in [1..#seq-1] do newgens:=HurwitzMove(gens,k);
+      if newgens notin orb then Include(~Trash, newgens);
+      end if; end for;
+until IsEmpty(Trash);
+for gens in orb do  test:=true;
+for k in [1..#seq-1] do 
+    if Order(gens[k]) gt Order(gens[k+1]) then test:=false; break k;
+    end if; end for;
+    if test then Include(~shortorb, gens); end if;
+end for;
+return shortorb;
+end function;
+
+//Now we create all set of spherical generators for a 
+//group isomorphic to H in the group G of a prescribed type
+
+SphGens:=function(groupG, idH, type)
+Gens:={ }; SetCands:=TuplesOfGivenOrders(groupG,Prune(type));
+if not IsEmpty(SetCands) then
+for cands in CartesianProduct(SetCands) do
+    if Order(&*cands) eq type[#type] then
+    if IdentifyGroup(sub<groupG|TupleToSeq(cands)>) eq idH then
+    Include(~Gens, Append(TupleToSeq(cands),(&*cands)^-1));
+end if; end if; end for; end if;
+return Gens;
+end function;
+
+//Finally we can find all surfaces. The next program finds all surfaces
+//with a given groups, type and sing (it runs over the first output
+//of ExistingSurfaces).
+
+FindSurfaces:=function(K, sing, type, idG)
+Good:=[* *]; Surfaces:={ };  All:={ };
+G:=SmallGroup(idG[1][1], idG[1][2]);
+idH:=IdentifyGroup(LowIndexSubgroups(G,2)[idG[2]]);
+AutG:=AutGr(G);
+NumberOfCands:=#SphGens(G,idH,type);
+printf "To Find= %o\n", NumberOfCands;
+for gens in SphGens(G,idH,type) do
+if gens notin All then
+    printf "A new one! ";
+    Include(~Surfaces, gens); H:=sub<G|gens>;
+    if CheckSingsG(sing, gens, H, G) then
+    S:=[* sing, type, Beta(K,Theta(type)), gens, idH, idG*];
+    printf " and right singularities!\n";
+    printf "A REALLY NEW SURFACE!!!\n";
+    Append(~Good, S);
+    else printf " but wrong singularities!\n";
+    end if;
+    orb:=HurwitzOrbit(gens);
+    for g1 in orb do
+        if g1 notin All then
+        for phi in AutG do Include(~All, phi(g1));
+        if #All eq  NumberOfCands then
+        printf "#Surfs= %o\n", #Surfaces; break gens;
+    end if; end for; end if; end for;
+    printf "#Surfs= %o, To Find= %o\n", #Surfaces, NumberOfCands-#All;
+end if; end for;
+return Good;
+end function;
+
+//The following is the main function, it takes K^2 as input and it returns
+//a file with the new surfaces and the skipped cases (BADORDERS)
+
+Output:=function(Ksquare)
+t:=Cputime(); New:=[* *];
+M, limbo, tocheck:=ExistingSurfaces(Ksquare);
+for m in M do
+    sing:=m[1]; type:=m[2]; idgroup:=m[3];
+    printf "\n Checking news %o \n", m[3][1];
+    Surf:=FindSurfaces(Ksquare, sing, type, idgroup);
+    for surf in Surf do Append(~New, surf);
+end for; end for;
+F:= Open("OUT" cat IntegerToString(Ksquare) cat ".txt","w");
+fprintf F, "K^2=%o\n\n\n", Ksquare;
+if #New ne 0 then
+fprintf F, "NEW SURFACES: %o\n", #New;
+fprintf F, "sing,  type,  Beta,  gens, Id(H), Id(G)\n\n";
+for new in New do fprintf F, "%o\n\n", new; end for;
+fprintf F, "\n\n";
+end if;
+if #limbo ne 0 then
+fprintf F, "PARTIALLY TO CHECK CASES: %o\n", #limbo;
+for L in limbo do fprintf F, "%o\n\n", L; end for;
+fprintf F, "\n\n";
+end if;
+if #tocheck ne 0 then
+fprintf F, " TO CHECK CASES: %o\n", #tocheck;
+for T in tocheck do fprintf F, "%o\n\n", T; end for;
+end if;
+printf "Time: %o\n", Cputime(t);
+return "K^2=",Ksquare,", #New surf=",#New;
+end function;
+
+//We now want to compute the fundamental group of the surfaces
+//that we have constructed. The script Pi1 does it, this
+//script need some other functions
+
+//Poly builds the polygonal group P of the signature given by seq 
+//and an appropriate orbifold homomorphism P->gr
+
+Poly:=function(seq, gr)
+F:=FreeGroup(#seq);  Rel:={F![1..#seq]};
+for i in [1..#seq] do Include(~Rel,F.i^Order(seq[i])); end for;
+P:=quo<F|Rel>;
+return P, hom<P->gr|seq>;
+end function;
+
+//DirProd returns the direct product between the groups
+//G1 and G2, and the corresponding injections 
+//and projections.
+
+DirProd:=function(G1,G2)
+G1xG2:=DirectProduct(G1,G2); vars:=[]; 
+n:=[NumberOfGenerators(G1),NumberOfGenerators(G2)];
+for i in [1..(n[1]+n[2])] do Append(~vars,G1xG2.i); end for;
+SplittedVars:=Partition(vars,n);
+injs:=[hom< G1->G1xG2 | SplittedVars[1]>,hom< G2->G1xG2 | SplittedVars[2]>];
+vars1:=[]; vars2:=[];
+for i in [1..n[1]] do Append(~vars1,G1.i); Append(~vars2,G2!1); end for;
+for i in [1..n[2]] do Append(~vars1,G1!1); Append(~vars2,G2.i); end for;
+projs:=[hom< G1xG2->G1 | vars1>,hom< G1xG2->G2 | vars2>];
+return G1xG2, injs, projs;
+end function;
+
+//MapProd  computes given two maps A->B the map product induced by 
+//the product on B
+
+MapProd:=function(map1,map2)
+seq:=[];
+A:=Domain(map1); B:=Codomain(map1);
+if Category(A) eq GrpPC then n:=NPCgens(A);
+else n:=NumberOfGenerators(A); end if;
+for i in [1..n] do Append(~seq, map1(A.i)*map2(A.i)); end for;
+return hom<A->B|seq>;
+end function;
+
+//Pi1 use a sequence of sperichal generators of G  to construct H 
+//the corresponding polygonal group and the group HH that acts
+//on the universal cover of CxC. Then it constructs the degree 2
+//extension GG. Finally it takes the quotient by Tors(GG)
+
+Pi1:=function(seq, G)
+H:=sub<G|seq>; REL:=[]; TorsG:=[]; Nodes:={};
+el:=random{g: g in G | g notin H};
+phi1:=hom<H->H| x:-> x^el>;
+T,f1:=Poly(seq,H);  t:=(el^2)@@f1;
+TxT,inT,proT:=DirProd(T,T);
+HxH,inH:=DirectProduct(H,H);
+Diag:=MapProd(inH[1],inH[2])(H);  
+f:=MapProd(proT[1]*f1*inH[1],proT[2]*f1*phi1*inH[2]);
+bigH:=Rewrite(TxT,Diag@@f); tt:=inT[1](t)*inT[2](t);
+PHI:=hom<bigH->bigH| x:-> inT[1](proT[2](x))*inT[2](t*proT[1](x)*(t^-1))>;
+genH:=SetToSequence(Generators(bigH)); relH:=Relations(bigH);
+F:=FreeProduct(bigH,FreeGroup(1)); im:=[];
+for i in [1..#genH] do Append(~im,F.i);  end for;
+map:=hom<bigH->F|im>; tau:=map(tt);
+ul:=F.(#Generators(F)); Append(~REL, ul^2*(tau^-1));
+for i in [1..#genH] do
+Append(~REL, map(PHI(genH[i]))* ul * map(genH[i]^-1 )*(ul^-1)); 
+end for;
+bigG,pr:=quo<F|REL>;
+for i in [1..#seq] do gen1:=seq[i];
+for j in [1..#seq] do gen2:=seq[j];
+for o1 in [1..Order(gen1)-1] do
+for o2 in [1..Order(gen2)-1] do
+test,v:=IsConjugate(H,gen1^o1, phi1(gen2^o2));
+if test then  Include(~Nodes, [i,j]);
+for d in Centralizer(H, gen1^o1) do
+    Append(~TorsG, pr(map(TxT.i^o1 *
+           ((TxT.(j+#seq)^o2)^(inT[2]((el *d^-1*v*el^-1)@@f1)^-1)))));
+end for; end if; end for; end for; end for; end for;
+for i in [1..#seq] do gen:=seq[i];
+if [i,i] in Nodes then
+for h in H do if Order(el*h) eq 4 then
+test, v:= IsConjugate(H, (el*h)^2, gen^(IntegerRing()!(Order(gen)/2)));
+if test then
+w:=v@@f1;  h1:=h@@f1; h2:= (el*h*(el^-1))@@f1; s:=h2*t*h1;
+k:=(s^-1)*((T.i^(IntegerRing()!(Order(gen)/2)))^(w^-1));
+Append(~TorsG, pr(ul*(map(inT[1](h1)*inT[2](k*h2)))));
+end if; end if; end for; end if; end for;
+return Simplify(quo<bigG|TorsG>);
+end function;
+
+//Finally we put here a function that we do not use
+//in the previous part of the script, but we use it
+//to show that some skipped cases do not occur.
+
+//It returns a representative for each conjugacy 
+//class of the automorphism of group of the given order
+
+AutConjugCl:=function(group, order)
+     Set:={}; Rep:=[];
+     Aut:=AutGr(group);
+     list:=[x: x in Aut | Order(x) eq order]; 
+     for el in list do
+     if el notin Set then         
+        Append(~Rep, el);
+        for a in Aut do Include(~Set, el^a);
+     end for; end if; end for;
+     #list, #Rep;
+return Rep;
+end function;

@@ -1,0 +1,237 @@
+// This function counts the number of  fixpoints of g1^-1*g2 in H < Aut(C)
+CountingIntersections:=function(g1,g2,seq, H)
+int:=0;
+for j in [1..#seq] do 
+	c:=0; K:=sub<H|seq[j]>;
+	for g in H do 
+		if g1^-1*g2 in  {g*k*g^-1: k in K}  then c:=c+1; 
+		end if;
+	end for; 
+	int:=int+(c/#K); 
+end for;
+return int;
+end function;
+
+
+/*
+The following procedure is the main function of the script.
+Given: 
+i) the group G,
+ii) the generating vector ram for G0 determing the covering C->C/G^0=P^1,
+ii) the automorphism group H: G0<H<Aut(C), the embedding e:G0 -> H, and
+iii) a generating vector w for the covering C->C/H,
+it constructs all the orbit divisors on CxC/G induced by elements of H
+and prints their intersection products.
+*/
+
+
+OrbitDivisors:=procedure(G,ram,G0,H,e,w)
+
+ID:=IdentifyGroup(G);
+F:="Orbit_divisors_G=(" cat  IntegerToString(ID[1]) cat "," cat IntegerToString(ID[2]) cat ").txt";
+
+fprintf F, "\n \n \n GENERATING VECTOR %o\n\n", ram;
+
+Theta:=-2; 
+for m in [Order(ram[i]): i in [1..#ram]] do
+	Theta+:=(1-1/m); 
+end for;
+
+genus_1:=#G0*Theta/2; // g(C)-1
+"genus-1 = ", genus_1;
+
+t:=Rep({x: x in G | x notin G0}); // \tau'
+
+L:=[ ];
+P:=Set(H);
+
+while not IsEmpty(P) do
+	f:=Rep(P);  //it represents the curve Delta_f, graph of the automorphism f of C
+	Gamma:={e(t*h*t^-1)*f*e(h^-1) : h in G0} join {e(t^2*h)*f^-1*e(t*h^-1*t^-1) : h in G0}; //the  Curves \gamma(Delta_f), \gamma in G
+	Append(~L, Gamma);
+	P:=P diff Gamma;
+end while; 
+
+#L, "orbit divisors"; //each element in L is an orbit of the G-action on the set {Delta_f |f in H}.
+fprintf F, "%o, %o\n", #L, "orbit divisors";
+
+"i, selfintersection D_i^2 and D_i.K_S"; 
+fprintf F, "i, selfintersection D_i^2 and D_i.K_S\n"; 
+
+for a in [1..#L] do 
+	Gamma:=L[a]; n:=#Gamma;
+	self:= -2*n* genus_1; GK:=4*genus_1*n;
+	for g1 in Gamma do
+	for g2 in Gamma diff {g1} do 
+		int:=CountingIntersections(g1,g2,w,H);
+		self:=self+int;
+	end for; end for;
+	a, self/#G, GK/#G;
+	fprintf F, "%o, %o, %o \n", a, self/#G, GK/#G;
+end for;
+
+"i,j,intersection D_i.D_j (i<j)\n";
+fprintf F, "\n i,j,intersection D_i.D_j (i<j)\n";
+
+for a in [1..#L] do
+for b in [a+1 .. #L] do prod:=0;
+	for g1 in L[a] do
+	for g2 in L[b] do 
+		int:=CountingIntersections(g1,g2,w, H);
+		prod:=prod+int;
+	end for; end for;
+	a,b,prod/#G;
+	fprintf F, "%o, %o, %o \n", a,b,prod/#G;
+end for; end for;
+
+end procedure;
+
+
+
+
+//CASE 1
+
+G:=SmallGroup(64,92);
+ram:=[ G.2 * G.6, G.2 * G.3 * G.4, G.2 * G.3 * G.5 * G.6, G.2 * G.5, G.4 ];
+G0:=sub<G|ram>;
+
+H:=G0;
+e:=Identity(AutomorphismGroup(G0));
+w:=ram;
+
+OrbitDivisors(G,ram,G0,H,e,w);
+
+
+
+//CASE 2
+
+G:=SmallGroup(256, 3679);  
+ram:=[ G.2 * G.3, G.3 * G.6 * G.7 * G.8, G.2 * G.5 * G.6 ];
+G0:=sub<G|ram>;
+
+H:=SmallGroup(768, 1085341);
+H1:=CommutatorSubgroup(H); H2:=CommutatorSubgroup(H1);
+e:=hom<G0->H |[H.4*H.5*H.9, H.3*H.4*H.7*H.9,H.5*H.8*H.9,H.5*H.6*H.7*H.8,H.5*H.6*H.9,H.9,H.8]>; 
+Image(e) eq H2;
+
+w:=[ H.1 * H.2 * H.6, H.2 * H.4, H.1 * H.2^2 * H.3 * H.4 * H.5 * H.6 ];
+b:=w[2]; c:=w[3]; u:=[b*c^2*b^-1,b^2*c^2*b^-2,c^2]@@e; u eq ram;
+
+OrbitDivisors(G,ram,G0,H,e,w);
+
+
+
+//CASE 3
+
+G:=SmallGroup(256, 3678);
+ram:=[ G.1 * G.3 * G.5 * G.8, G.1 * G.2 * G.3 * G.7, G.2 * G.4 * G.7 ];
+G0:=sub<G|ram>;
+
+H:=SmallGroup(768, 1085341);
+H1:=CommutatorSubgroup(H); H2:=CommutatorSubgroup(H1);
+
+e:=hom<G0->H | [H.3*H.7*H.9,H.3*H.4*H.6*H.7*H.8*H.9,H.5*H.6*H.9,H.6,H.5*H.7*H.8,H.8*H.9,H.9]>;
+Image(e) eq H2;
+
+w:=[H.1*H.7,H.2*H.4*H.6*H.7*H.9,H.1*H.2*H.3*H.9];
+b:=w[2]; c:=w[3]; u:=[b*c^2*b^-1,b^2*c^2*b^-2,c^2]@@e; u eq ram;
+
+OrbitDivisors(G,ram,G0,H,e,w);
+
+
+
+//CASE 4
+
+G:=SmallGroup(256, 3678);
+ram:=[ G.1 * G.4 * G.7, G.3 * G.5 * G.6, G.1 * G.3 * G.4 * G.5 * G.7 * G.8 ];
+G0:=sub<G|ram>;
+
+H:=SmallGroup(768, 1085341);
+H1:=CommutatorSubgroup(H); H2:=CommutatorSubgroup(H1);
+
+e:=hom<G0->H | [H.4*H.6*H.7,H.3*H.5*H.8,H.5*H.6*H.7*H.8,H.5*H.6,H.5,H.9,H.8]>;
+Image(e) eq H2;
+
+w:=[H.1*H.2^2*H.3*H.6*H.7*H.8,H.2^2*H.3*H.4,H.1*H.2*H.4];
+b:=w[2]; c:=w[3]; u:=[b*c^2*b^-1,b^2*c^2*b^-2,c^2]@@e; u eq ram;
+
+OrbitDivisors(G,ram,G0,H,e,w);
+
+
+
+//CASE 5
+
+G:=SmallGroup(256, 3678);
+ram:=[ G.2 * G.3, G.3 * G.6 * G.7 * G.8, G.2 * G.5 * G.6 ];
+G0:=sub<G|ram>;
+
+H:=SmallGroup(768, 1085341);
+H1:=CommutatorSubgroup(H); H2:=CommutatorSubgroup(H1);
+
+e:=hom<G0->H | [H.3*H.5*H.8,H.3*H.4*H.5*H.7*H.8*H.9,H.5*H.8*H.9,H.5*H.7*H.8,H.5*H.6*H.9,H.8*H.9,H.8]>;
+Image(e) eq H2;
+
+w:=[H.1*H.2*H.5,H.2^2*H.3*H.4,H.1*H.3*H.7];
+b:=w[2]; c:=w[3]; u:=[b*c^2*b^-1,b^2*c^2*b^-2,c^2]@@e; u eq ram;
+
+OrbitDivisors(G,ram,G0,H,e,w);
+
+
+
+
+/*
+The following script is used to prove the claims in the proof of the main theorem: 
+i) there is a unique group of order 768 having a generating vector of type [0;2,3,8]: H:=SmallGroup(768, 1085341).
+ii) H has G0=SmallGroup(128,36) has normal subgroup, more precisely G0 is the second derived subgroup.
+
+TuplesOfGivenOrder creates a sequence of length equal to the length of the input sequence type, whose entries are subsets of the group G, and precisely the subsets of elements of order the corresponding entry of type.
+
+ExistsVectGens returns true if the group G has a generating vector of type [0; type], type=m_1,...,m_r.
+*/
+
+TuplesOfGivenOrders:=function(G,type)
+SEQ:=[ ];
+
+for i in [1..#type] do
+	ElsOfOrd:= {g: g in G| Order(g) eq type[i]};
+	if IsEmpty(ElsOfOrd) then return [ ];
+	else Append(~SEQ,ElsOfOrd);
+end if;end for;
+
+return SEQ;
+end function;
+
+ExistsVectGens:=function(G, type)
+test:=false; SetCands:=TuplesOfGivenOrders(G,type);
+
+if not IsEmpty(SetCands) then
+	cands:= CartesianProduct(SetCands);
+	for cand in cands do
+	if &*cand eq Id(G) then  
+		S:=sub<G|{x:x in cand}>;
+ 		if #S eq #G then 
+			if CanIdentifyGroup(#G) then
+				if IdentifyGroup(S) eq IdentifyGroup(G) then    
+     					test:=true; break cand;
+				end if;
+			else if IsIsomorphic(S, G) then  
+				test:=true; break cand;
+			end if;
+end if; end if; end if; end for; end if;
+
+return test;
+end function;
+
+//Proof of Claim i)
+
+for D in SmallGroups(768) do 
+if ExistsVectGens(D,[2,3,8]) then IdentifyGroup(D); end if;
+end for;
+
+//Proof of Claim ii)
+
+H:=SmallGroup(768, 1085341);
+#{s: s in AllSubgroups(H) | IdentifyGroup(s) eq  <128,36>}; 
+H1:=CommutatorSubgroup(H); H2:=CommutatorSubgroup(H1); IdentifyGroup(H2);
+
+

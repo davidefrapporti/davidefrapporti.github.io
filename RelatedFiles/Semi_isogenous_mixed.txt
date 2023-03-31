@@ -1,0 +1,888 @@
+// Input: K^2, p_g and q
+//
+// The main function of the program is Output(Ksquare,pg,q), which is defined at the bottom of the file.
+// This function calls the other sub-functions defined below.
+// It creates a file containing the semi-isogenous mixed surfaces with the required invariants
+// and Galois Goup in the MAGMA Database of finite groups (SmallGroupDatabase).
+// The program prints the skipped cases (if any) separately.
+//
+//
+// Step 1: the types
+//
+// Once we fix K^2, p_g and q there are finitely many possible
+// signatures satisfying all the condition of the Proposition 5.1.
+//
+// We will represent a signature as the multiset of
+// positive integers {* m_i *}.
+
+// We define the invariants Theta and Beta:
+
+Theta:=function(q, sig)
+	a:=2*q-2;
+	for m in sig do a+:=(1-1/m); end for;
+return a;
+end function;
+
+Beta:=func<K, chi,  T | 2*(10*chi-K)/T>; // it coincides with g(C)-1
+
+// These two transform a multiset, resp. a tuple  into a sequence
+
+MsetToSeq:=function(mset)
+seq:=[ ];
+while #mset ne 0 do Append(~seq, Minimum(mset));
+	Exclude(~mset, Minimum(mset)); end while;
+return seq;
+end function;
+
+TupleToSeq:=function(tuple)
+seq:=[ ];
+for el in tuple  do 	Append(~seq,el); end for;
+return seq;
+end function;
+
+
+
+
+// The input of the next program are 3 numbers, Length, HB and n and its output are all types with
+// #type=Length such that  each m_i is smaller than HB and it divides n;
+
+CandTypes:=function(Length,HB,n)
+D:={x: x in Divisors(n) |  x in {2..HB}};  //divisors of n smaller than HB and different from 1
+Types:=Multisets(D,  Length);
+return Types;
+end function;
+
+// The function ListTypes calculate all the types giving the 
+// expected value of beta (=2*(10*chi-Ksquare)/Theta).
+
+ListOfTypes:=function(Ksquare,pg, q, beta)
+list:={};    chi:=1+pg-q;
+
+N:=IntegerRing()!(beta*(8*chi-Ksquare)/(10*chi-Ksquare)); // N is |O_2|
+ordG0:=IntegerRing()!( (beta^2)/(10*chi-Ksquare));
+
+if q eq 0 then Rmin:=3; 
+   elif q eq 1 then Rmin:=1; 
+   else Rmin:=0; 
+end if;
+
+Rmax:=Floor((4*(10*chi-Ksquare)/beta)+4*(1-q));
+    for R in [Rmin..Rmax] do
+    	
+	M:=Max(1/6,(R-3+4*q)/2);
+       	HB:= Min({beta, Floor( (1+2*(10*chi-Ksquare) )/M )     });
+
+	if N gt 0 then HB:=Min({beta, N,  Floor(ordG0/N),   Floor( (1+2*(8*chi-Ksquare) )/M)          });end if;
+
+       	for cand in CandTypes(R,HB,GCD({N, beta, ordG0}) ) do 
+
+		T:=Theta(q,cand);  
+		if T eq 2*(10*chi-Ksquare)/beta then
+		    	Include(~list, MsetToSeq(cand) cat [ordG0] );		
+		end if;
+end for; end for; 
+
+return list;
+end function;
+
+// ListTypes returns, for given K^2, p_g and q,
+// all  the possible types (using ListOfTypes) (see Proposition 5.1)
+
+
+ListTypes:=function(Ksquare, pg,q)
+
+List:=[ ]; chi:=1-q+pg;
+
+if q eq 0 then Tmin:=1/42;
+   elif q eq 1 then Tmin:=1/2;
+   else  Tmin:=2*q-2;
+end if;
+
+BetaMax:=Floor(Beta(Ksquare,chi,Tmin));
+
+for beta in [BetaMax.. 1 by -1] do 
+	N:=beta*(8*chi-Ksquare)/(10*chi-Ksquare); 
+	ordG0:= (beta^2)/(10*chi-Ksquare); 
+	if IsIntegral(N) and IsIntegral(ordG0)  and (N le ordG0) then
+			for T in  ListOfTypes(Ksquare, pg,q, beta) do 
+				Append(~List,T ); 
+			end for;
+end if; end for;
+
+return List;
+end function;
+
+
+//
+// Step 2: admissible groups G^0
+//
+// Fixed K^2, p_g, q, and the type, we can compute the order  of the group G^0.
+// We search among the group of order |G^0|  which groups
+// have a  generating vector of the prescribed type.
+
+ElsOfOrd:=func<group, order | {g: g in group| Order(g) eq order}>;
+
+// TuplesOfGivenOrder creates a sequence of length equal to
+// the length of the input sequence type plus 2*q, whose entries are subsets of the group in
+// the input, and precisely the subsets of elements of order
+// the corresponding entry of type and 2*q copies of the whole group.
+
+TuplesOfGivenOrders:=function(group,q,type)
+SEQ:=[ ];
+
+for i in [1..2*q] do Append(~SEQ,Set(group)); end for;
+for i in [1..#type] do
+if IsEmpty(ElsOfOrd(group,type[i])) then return [ ];
+else Append(~SEQ,ElsOfOrd(group,type[i]));
+end if;end for;
+
+return SEQ;
+end function;
+
+/// This script returns all the generating vector
+//  for a group isomorphic to H < G of prescribed type.
+
+VectGens:=function(G, H, q, type: OnlyExistence:= false)
+Vect:={}; SetCands:=TuplesOfGivenOrders(G,q,type);
+
+sw:=#type;
+
+if not IsEmpty(SetCands) then
+	if sw ne 0 then 
+		Prune(~SetCands);
+	else type:=[1];
+	end if;
+	cands:= CartesianProduct(SetCands);
+	for cand in cands do m:=Id(G);
+		for i in [1..q] do     m:=m*(cand[2*i-1]^-1, cand[2*i]^-1); end for;
+		for i in [1..#type-1] do m:=m*cand[2*q+i]; end for;
+		if Order(m) eq type[#type] then  
+			S:=sub<G|TupleToSeq(cand)>;
+    			if #S eq #H then 
+				if #H eq #G then
+					if sw ne 0 then 
+						Include(~Vect, Append(TupleToSeq(cand),(m)^-1));  
+						else Include(~Vect, TupleToSeq(cand));  end if;
+					if OnlyExistence  then return true; end if; 
+				elif CanIdentifyGroup(#H) then
+					if IdentifyGroup(S) eq IdentifyGroup(H) then    
+      						if sw ne 0 then 
+							Include(~Vect, Append(TupleToSeq(cand),(m)^-1));  
+							else Include(~Vect, TupleToSeq(cand));  end if;
+						if OnlyExistence  then return true;end if; 
+					end if;
+				else
+					if IsIsomorphic(S, H) then  
+						if sw ne 0 then 
+							Include(~Vect, Append(TupleToSeq(cand),(m)^-1));  
+							else Include(~Vect, TupleToSeq(cand));  end if;
+						if OnlyExistence  then return true;end if; 
+					end if;
+end if; end if; end if; end for; end if;
+
+if OnlyExistence  then
+	return false;
+end if;
+
+return Vect;
+end function;
+
+
+
+
+// The following function are use to construct the "Hurwitz moves".
+// These moves are described in [Pen15].
+
+ // The next script takes a sequence of elements of a group
+// and a further element g and conjugates each element
+// of the sequence with g.
+
+Conjug:=function(seq,el)
+output:=[];
+for h in seq do Append(~output,h^el); end for;
+return output;
+end function;
+
+HurwitzMove0:= func<seq,idx|Insert(Remove(seq,idx),idx+1,seq[idx]^seq[idx+1])>;
+
+// HurwitzOrbit0, starting from a sequence of elements of a group,
+// creates all sequences of elements which are equivalent to the given one
+// for the equivalence relation generated by the Hurwitz moves of type (0; m_1,..., m_r),
+// and return (to spare memory) only the ones whose entries have never 
+// decreasing order.
+
+HurwitzOrbit0:=function(seq)
+orb:={ }; shortorb:={  }; Trash:={ seq };
+repeat
+      ExtractRep(~Trash,~gens); Include(~orb, gens);
+      for k in [1..#seq-1] do 
+		newgens:=HurwitzMove0(gens,k);
+	      if newgens notin orb then 
+			Include(~Trash, newgens);
+      end if; end for;
+until IsEmpty(Trash);
+for gens in orb do  test:=true;
+for k in [1..#seq-1] do 
+    if Order(gens[k]) gt Order(gens[k+1]) then test:=false; break k;
+    end if; end for;
+    if test then Include(~shortorb, gens); end if;
+end for;
+return shortorb;
+end function;
+
+// The next one create the Hurwitz move of type (1; m)
+
+HurwitzMove1N:=function(seq)
+moves:={};
+t1:=[seq[1],seq[2]*seq[1], seq[3]];
+Include(~moves,t1);
+t2:=[seq[1]*seq[2]^-1,seq[2], seq[3]];
+Include(~moves,t2);
+return moves;
+end function;
+
+// This one, starting from a sequence of elements of a group,
+// creates all sequences of elements which are equivalent to the given one
+// for the equivalence relation generated by the Hurwitz moves of type (1; m).
+
+HurwitzOrbit1N:=function(seq)
+orb:={};  Trash:={ seq };
+repeat
+      ExtractRep(~Trash,~gens); Include(~orb, gens);
+      for newgens in HurwitzMove1N(gens) do
+      if newgens notin orb then Include(~Trash, newgens);
+      end if; end for;
+until IsEmpty(Trash);
+return orb;
+end function;
+
+// The next one create the Hurwitz move of type (g'; m_1, ..., m_r), 
+// with g'>1 or g'>0 and r>1.
+
+
+HurwitzMoveGen:=function(h,seq)
+moves:={};
+fund:=[seq[i]: i in [1..2*h]];
+ram:=[seq[i]:  i in [2*h+1.. #seq] ];
+
+
+//Type 1-2, t_j, t_(\delta_j)
+
+for j in [1.. h] do 
+	t1:=seq; t2:=seq; 
+	t1[2*j-1]:=seq[2*j-1]*(seq[2*j]^-1);
+	t2[2*j]:=seq[2*j]*seq[2*j-1];
+	Include(~moves, t1);Include(~moves, t2);
+end for;
+
+//Type 3, t_(\sigma_h)
+
+for h in [1.. #ram -1] do 
+	t3:=fund cat (HurwitzMove0(ram, h) );
+	Include(~moves, t3); 
+end for;
+
+
+//Type 4, t_(\tau_k)
+
+for k in [1.. h-1] do 
+	x:=(seq[2*k]^-1) * seq[2*k+1] * seq[2*k+2] *(seq[2*k+1]^-1) ;
+	t4:=seq;  
+	t4[2*k-1]:=seq[2*k-1]*(x^-1);
+	t4[2*k]:=x*seq[2*k]*(x^-1);
+	t4[2*k+1]:=x*seq[2*k+1];
+	Include(~moves, t4);
+end for;
+
+//Type 5-6, t_(\xi^1_j,d),  t_(\xi^2_j,d)
+
+for j in [1..h]  do  
+	for d in [1..#ram] do
+
+	u:=seq[1]*(seq[1]^-1);
+	for  k in [1..j-1] do 
+		u:= u* (seq[2*k-1]*seq[2*k]*(seq[2*k-1]^-1)*(seq[2*k]^-1)  );
+	end for; 
+	
+	s:=seq[1]*(seq[1]^-1);
+	for z in [2*h+d+1..#seq] do s:=s*seq[z]; end for;
+	c:=(u^-1)*(seq[#fund+ d])*u; 
+	
+	e:= u *seq[2*j-1]*seq[2*j]*(seq[2*j-1]^-1) *(u^-1);
+
+	f:=u*( seq[2*j-1]*seq[2*j]*(seq[2*j-1]^-1)*(seq[2*j]^-1)  ) * (seq[2*j-1]^-1) *(u^-1)  ;	
+
+
+	t5:=seq; t6:=seq;
+		
+	t5[2*j-1]:= c*seq[2*j-1];	
+	t5[2*h+d]:=  seq[2*h+d]*s*e*seq[2*h+d]*(e^-1)*(seq[2*h+d]^-1)*(s^-1);
+
+	t6[2*j]:= (seq[2*j-1]^-1)*c*seq[2*j-1]*seq[2*j];
+	t6[2*h+d]:= seq[2*h+d]*s*f* seq[2*h+d]*(f^-1)*( seq[2*h+d]^-1)*(s^-1);
+
+	Include(~moves, t5);Include(~moves, t6);
+
+end for;end for;
+
+return moves;
+end function;
+
+
+// This one, starting from a sequence of elements of a group,
+// creates all sequences of elements which are equivalent to the given one
+// for the equivalence relation generated by the Hurwitz moves of type (g'; m_1, ..., m_r), 
+// with g'>1 or g'>0 and r>1.
+
+HurwitzOrbitGen:=function(h,seq)
+orb:={};  Trash:={ seq };
+repeat
+      ExtractRep(~Trash,~gens); Include(~orb, gens);
+      for newgens in HurwitzMoveGen(h,gens) do
+      if newgens notin orb then Include(~Trash, newgens);
+      end if; end for;
+until IsEmpty(Trash);
+return orb;
+end function;
+
+
+
+HurwitzOrbit:=function(h,type,seq)
+orb:={};  
+// type (0; m_1,..., m_r)
+if h eq 0 then 
+   orb:=HurwitzOrbit0(seq);
+// type (1; m)
+elif h eq 1 and #type eq 1 then
+     orb:=HurwitzOrbit1N(seq);
+// type  (g'; m_1, ..., m_r), 
+else  
+	orb:=HurwitzOrbitGen(h,seq);
+end if;
+
+return orb;
+end function;
+
+
+// End of Hurwitz moves
+
+// ClassVectGenscomputes all possible generating vectors
+//  for a group isomorphic to H < G of prescribed type and return
+// only one representative for  each orbit of the equivalence relation generated by the Hurwitz moves
+
+
+ClassVectGens:=function(G,H,h, type)    
+Repres:={};   Vects:=VectGens(G,H,h, type);
+
+while not IsEmpty(Vects) do
+   v:=Rep(Vects);      
+   Include(~Repres,v);
+     orb:=HurwitzOrbit(h,type,v); 
+   for v1 in orb do
+   for g in G do  w1:=Conjug(v1,g);
+   Exclude(~Vects, w1);  
+   end for;end for;
+end while;
+
+return Repres;
+end function;
+
+
+
+// If a group has a generating vector of the
+// right type before to look for an  extension,
+// we check if the group has a disjoint pair of generating vectors.
+// If this is not the case surely a generating vector
+// and its conjugation by tau' are not disjoint and Y is not smooth.
+
+
+DisjGV:=function(H,q,gens1,gens2)
+test:=true;
+for i in [2*q+1..#gens1] do gen1:=gens1[i]; 
+for j in [2*q+1..#gens2] do gen2:=gens2[j];
+for d1 in [1..Order(gen1)-1] do
+for d2 in [1..Order(gen2)-1] do
+	if IsConjugate(H,gen1^d1,gen2^d2) then
+	test:=false; break i;
+	end if;
+end for; end for; end for; end for;
+return test;
+end function;
+
+// These function checks if a group has a disjoint pair of
+// generating vectors 
+
+ExistDisjointVectGens:=function(groupH,q,type) 
+
+s:=SetToSequence(ClassVectGens(groupH,groupH,q,type)); 
+c:=1; test:= false;
+
+for i in [1..#s] do   gens1:=s[i];
+ for j in [c..#s] do   gens2:=s[j]; 
+	if DisjGV(groupH,q, gens1, gens2) then
+		test:=true; break i;
+end if;  end for; c+:=1; end for;
+
+return test;
+end function;
+
+
+// Orbifold builds the orbifold surface group of the signature given by q and seq
+
+Orbifold:=function(q,seq)
+F:=FreeGroup(2*q+#seq);      G:=Id(F); Rel:={};
+for i in [1..q] do  G:=G*(F.(2*i-1)^-1,F.(2*i)^-1); end for;
+for i in [1..#seq] do G:=G*F.(2*q+i); Include(~Rel,F.(2*q+i)^(seq[i]));   end for;
+Include(~Rel, G);
+return quo<F|Rel>;
+end function;
+
+ 
+// The group G^0 is a quotient of orbifold surface group T of type (q;type)
+// and so (G^0)^{ab} is a quotient of T^{ab}. 
+// Next script makes this test (only for q=0) before checking wheter 
+// the group has a generating vector of type (q;type).
+
+AbCheck:=function(q, type, H, group)
+test:=false; 
+AQH:=AbelianQuotient(H);
+if q ne 0 then test:=VectGens(H, H, q, type: OnlyExistence:= true); 
+else  for g in Subgroups(group) do 
+	h:=group/(g`subgroup); 
+	if Order(h) eq Order(AQH) then
+	if IsIsomorphic(h, AQH) then
+		test:=VectGens(H, H, q, type: OnlyExistence:= true);  break g;
+end if;  end if; end for;end if;		
+
+return test;
+end function;
+
+
+//ListGroupsG0 searches among the groups of order ordG0
+// for groups with a disjoint pair of generating vectors of type (q;type)
+
+ListGroupsG0:=function(q,type,ordG0)
+badorders:={ 512, 768,1152,1280,1536,1920};
+
+set:={}; i:=1;
+
+if  q ne 0 then group:=SmallGroup(1,1); 
+else
+group:=AbelianQuotient(Orbifold(q,type));
+end if;
+
+if ordG0 in badorders then 
+P:= SmallGroupProcess(ordG0);
+repeat 
+H := Current(P); i;
+if AbCheck(q,type,H,group) then 
+		if ExistDisjointVectGens(H,q, type) then     
+		Include(~set, i); 
+	end if; end if; i:=i+1; Advance(~P);
+until IsEmpty(P);
+else
+for H in SmallGroups(ordG0) do i;
+	if AbCheck(q,type,H,group) then 
+		if ExistDisjointVectGens(H,q, type) then      
+		Include(~set, i); 
+	end if; end if; i:=i+1;
+end for;
+end if;
+return set;
+end function;
+
+
+//
+// Step 3: the extensions
+//
+// We check if the given group "groupH"=G^0
+// has some extension of degree 2 with the expected number of elements of order 2
+// and which satisfies the condition of Remark 5.4.
+
+
+Ind:=function(el2G ,G, type)
+
+set:={};
+for x in el2G do 
+	cent:=Centralizer(G, x); n:=#G/#cent;
+	if forall{m: m in type | m le n} then 
+		Include(~set, x);
+end if;end for;
+
+return  set;
+end function;
+
+
+// If 8*chi is not equal to Ksquare, the map CxC-> X is not q.e. and so G
+// is a semidirect product of the normal subgroup G^0 and the cyclic group Z_2= < z >,
+// that is, we have to give morphisms f:Z_2-> Aut(G^0). But if for two morphisms f_1, f_2,
+// the images f_1(Z_2) and f_2(Z_2) are conjugated then  the semidirect products are isomorph,
+// hence we have to consider all the images of z in Aut(G^0) up to conjugation.
+
+AutGr:= function(Aut)
+A:={ Aut!1 };
+repeat
+   	for g1 in Generators(Aut) do
+	for g2 in A do
+		Include (~A,g1*g2);
+	end for; end for; 
+until  #A eq #Aut;
+return A;
+end function;
+
+ConjugCl:=function(group, order)
+     Set:={}; Rep:=[];
+     list:=[x: x in group | Order(x) eq order];
+     for el in list do
+         if el notin Set then
+            for a in group do
+                Include(~Set, el^a);
+         end for;  Append(~Rep, el);
+     end if; end for;
+return Rep;
+end function;
+
+// Extension checks if the given group "groupH"=G^0
+// has some extension of degree 2 with the expected number of elements of order 2
+// and which satisfies the condition of Remark 5.4, and returns all of them.
+//
+// If it is possible it constructs the extension as semidirect products, 
+// otherwise it runs over the groups of order |G|
+
+
+Extension:=function(idH,q,type,N)
+H:=SmallGroup(idH[1],idH[2]);
+
+ext:={};   
+
+Aut:=AutomorphismGroup(H);
+#Aut;
+if ( N ne 0)   and (#Aut le 5000) and CanIdentifyGroup(2*idH[1]) then 
+
+A:=AutGr(Aut); 
+	AutOfOrd2:=ConjugCl(A,2) cat [ Aut!1]; //inclusa l'identitÃ 
+"Aut2!\n";
+
+C2:=SmallGroup(2,1);
+
+for i in [1..#AutOfOrd2] do 
+	map:=hom<C2->Aut| AutOfOrd2[i]>; 
+	G, em :=SemidirectProduct(H,C2,map);	
+	el2G:={x: x in G | Order(x) eq 2 and x notin em(H)};  
+	if #el2G eq N and #Ind(el2G,G,Set(type)) eq N  then	 //ciascun m_i Ã¨ minore dei vari N_j
+		Include(~ext, IdentifyGroup(G));
+end if; end for;
+
+
+else
+"ExplicG.\n";
+el2H:={x: x in H | Order(x) eq 2};
+ordG:= 2*Order(H); 
+NoG:=NumberOfGroups(SmallGroupDatabase(), ordG); 
+
+for i in [1..NoG] do G:=SmallGroup(ordG, i); 
+el2G:={x: x in G | Order(x) eq 2};
+    if (#el2G-#el2H) eq N then   
+	   if (N eq 0) or (N le #Ind(el2G,G,Set(type)) ) then 	
+	   if VectGens(G,H,q,type: OnlyExistence:= true)  then 
+         	 Include(~ext, <ordG, i>);
+    end if; end if; end if;
+end for;
+
+end if;
+
+return ext;
+end function;
+
+
+
+// Step 4a: the fundamental group
+//
+// Next scripts allow us to calculate the topological
+// fundamental group of the surfaces we constructed.
+
+// Orbi constructs the orbifold surface group and the
+// appropriate orbifold homomorphism.
+
+
+Orbi:=function(seq, gr, q)
+F:=FreeGroup(#seq);    G:=Id(F); Rel:={};
+for i in [1..q] do  G:=G*(F.(2*i-1)^-1,F.(2*i)^-1); end for; 
+for i in [2*q+1..#seq] do G:=G*F.i; Include(~Rel,(F.i)^(  Order(seq[i])  ));   end for;
+Include(~Rel, G);
+P:=quo<F|Rel>;
+return P, hom<P->gr|seq>;
+end function;
+
+
+
+// MapProd computes given two maps f,g:A->B the map product
+// induced by the product on B
+
+MapProd:=function(map1,map2)
+seq:=[];
+A:=Domain(map1); B:=Codomain(map1);
+if Category(A) eq GrpPC then n:=NPCgens(A);
+else n:=NumberOfGenerators(A); end if;
+for i in [1..n] do Append(~seq, map1(A.i)*map2(A.i)); end for;
+return hom<A->B|seq>;
+end function;
+ 
+// Pi1 uses a generating vector for G^0
+// inside G to construct the corresponding orbifold surface group
+// and the group HH that acts on the universal cover of CxC.
+// Then it constructs the degree 2 extension GG. 
+// Finally it takes the quotient by Tors(GG).
+
+Pi1:=function(seq,G,q)
+
+H:=sub<G|seq>; 
+//el:=[g: g in G | g notin H][1];
+el:=Random({g: g in G | g notin H});
+
+phi1:=hom<H->H| x:-> (el^-1)*x*(el)>;
+
+T,f1:=Orbi(seq,H,q);  t:=(el^2)@@f1;
+
+TxT,inT,proT:=DirectProduct([T,T]);
+HxH,inH:=DirectProduct([H,H]);
+
+Diag:=MapProd(inH[1],inH[2])(H);  
+f:=MapProd(proT[1]*f1*inH[1],proT[2]*f1*phi1*inH[2]);
+
+bigH:=Rewrite(TxT,Diag@@f); 
+tt:=inT[1](t)*inT[2](t);
+PHI:=hom<bigH->bigH| x:-> inT[1](proT[2](x))*inT[2](t*proT[1](x)*(t^-1))>;
+
+genH:=SetToSequence(Generators(bigH)); relH:=Relations(bigH);
+
+REL:=[]; im:=[];
+F:=FreeProduct(bigH,FreeGroup(1)); 
+
+for i in [1..#genH] do Append(~im,F.i);  end for;
+	map:=hom<bigH->F|im>; tau:=map(tt);
+	ul:=F.(#Generators(F)); Append(~REL, ul^2*(tau^-1));
+	for i in [1..#genH] do
+		Append(~REL, map(PHI(genH[i]))* ul * map(genH[i]^-1 )*(ul^-1));
+end for;
+
+bigG,pr:=quo<F|REL>;
+
+TG:={}; 
+N:={h: h in H | Order(el*h) eq 2};
+
+for h in N do 
+	x:=h@@f1;   y:=ul*( map( inT[1](x)*inT[2]((t*x)^-1) ) );
+	Include(~TG, pr(y) ); 
+end for;
+
+return Simplify(quo<bigG|TG>);
+end function;
+
+
+
+// Step 4b: the Albanese fibre
+
+// GenAlb uses the generating vector seq for G^0
+// inside G (giving a surface X with q=1)
+// to compute the genus of the Albanese fibre of X.
+
+GenAlb:=function(G, seq);
+
+H,f:=sub<G|seq>; 
+el:=[x: x in G | x notin H][1];
+N:={h: h in H | Order(el*h) eq 2};
+HxH,inj, proj:=DirectProduct([H,H]);
+r:=[];  
+r[1]:= inj[1](seq[1])*inj[2](seq[1]^-1);
+r[2]:= inj[1](seq[2])*inj[2](seq[2]^-1);
+for i in {3..#seq} do
+   r[i]:=inj[1](seq[1]^-1*seq[2]^-1*seq[i]*seq[2]*seq[1]);
+   r[i-2+#seq]:=inj[2](seq[1]^-1*seq[2]^-1*seq[i]*seq[2]*seq[1]);
+ end for;
+ Im:=sub<HxH|r>;
+
+ set:={};
+ for g in Im do  for h in H do
+  Include(~set,inj[1](h* proj[1](g))*inj[2](el*h*el^-1* proj[2](g)));
+  Include(~set, inj[1](el*h*el^-1*proj[2](g))*inj[2](el^2*h* proj[1](g)));
+ end for; end for;
+
+ comp:=(#H)^2/#set;
+
+ T:=0;   for i in {3..#seq} do T+:=(1-1/Order(seq[i])); end for; 
+ eul:= (#H*T)/2-#N;
+ genus:=1+ (eul/comp);
+return genus;
+end function;
+
+//
+// Step 5:to find all the surfaces
+//
+
+
+// There is a surface for each pair (group, generating vector) which passes previous  tests, 
+// but they are often deformation equivalent . More precisely, 
+// it happens if the generating vectors
+// are equivalent for the equivalence relation generated
+// by Hurwitz moves and the automorhisms of the group. 
+// We need to construct orbits for this equivalence relation.
+
+OrbitsVectGens:=function(G,H,q, type)      
+Orbits:={};   Vects:=VectGens(G,H,q, type); 
+
+Aut:=AutomorphismGroup(G);
+A:=AutGr(Aut);
+while not IsEmpty(Vects) do
+	v:=Rep(Vects);      
+	Include(~Orbits,v);
+	orb:=HurwitzOrbit(q,type,v);
+	for v1 in orb do
+	for phi in A do
+      		Exclude(~Vects,phi(v1));  
+	        if IsEmpty(Vects) then break v1;    end if;
+	end for;
+	end for;
+end while;
+
+
+return Orbits;
+end function;
+
+
+
+
+// BranchCurves chechs if a generating vector for G^0 and the extension G 
+// give a smooth surface Y and  a quotient map CxC-> X with the expected branch locus 
+
+BranchCurves:=function(groupG, q, gens, expN, type)
+
+curves:=[**]; N:=0; test:=true; gens2:=[]; 
+groupH:= sub<groupG|gens>; F:=( Theta(q,type)/2 ); //F=beta/#G0
+tp:=[g: g in groupG | g notin groupH][1]; //tau'
+
+for i in [1..#gens] do Append(~gens2, gens[i]^tp); end for; 
+
+if DisjGV(groupH,q,gens,gens2) then 
+
+	RamCurves:={x: x in groupG| (not x in groupH) and (Order(x) eq 2)}; 
+	while not IsEmpty(RamCurves) do
+   	c:=Rep(RamCurves); 
+	cent:=Centralizer(groupG, c); nj:=#groupG/#cent; //index of Z(tau' k) = number of ram. curves mapped onto the same branch curve, i.e. cardinality of the conj. class
+		if IsIntegral(nj*F) then
+			N:=N+nj; Append(~curves, [ 1+nj*F,-4*nj*F]);
+			for x in groupG do Exclude(~RamCurves, c^x); end for; // we remove the elements conjugated to c.
+		else 
+			test:=false; return test, [**]; 
+		end if;
+	end while;
+
+else test:=false;
+
+end if;
+
+return (test and (expN eq N)),  curves;
+end function;
+
+
+// For each triple (G,G^0, type) in the output of Step 3, we check which pairs (G, gen.vect), 
+// give a semi-isogenous mixed surface with the expected invariants and we print them in the file F.
+
+FindSurfaces:=function(idG,idH,type,Ksquare,pg,q, New,F)
+chi:=1+pg-q; d:=0; 
+
+G:=SmallGroup(idG[1],idG[2]);
+H:=SmallGroup(idH[1],idH[2]);
+
+beta:=Beta(Ksquare, chi,Theta(q,type));
+N:=IntegerRing()!(beta*(8*chi-Ksquare)/(10*chi-Ksquare) );
+
+Orbs:=OrbitsVectGens(G,H, q, type); 
+
+for gens in Orbs do 
+	t, curves:=BranchCurves(G, q, gens, N, type) ;	
+	if t then d:=d+1;
+		fprintf F, "Surface number %o \n", New+d;
+		fprintf F, "G:%o\n", idG;
+		fprintf F, "G^0: %o\n",  idH;
+		fprintf F, "genus of C: %o\n",  1+Beta(Ksquare, 1+pg-q, Theta(q,type));
+		fprintf F, "\n";
+		fprintf F, "Type of generating vector: %o\n",type;
+		fprintf F, "Generating Vector: %o \n", gens;
+		fprintf F, "\n";
+		fprintf F, "Branch curves: %o \n", curves;       
+		fprintf F, "\n";
+		fprintf F, "H1(S,ZZ): %o \n", AbelianQuotient(Pi1(gens, G,q));
+		if q eq 1 then
+   			fprintf F, "\n";
+			fprintf F, "genus Albanese Fiber: %o \n", GenAlb(G, gens);
+		end if;
+		fprintf F, "\n\n\n";
+end if; end for;
+
+return d;
+end function;
+
+
+// Output is the main function of the scripts.
+// It calls the previous function and manages the outputs.
+
+
+Output:=function(Ksquare, pg,q)
+
+RT:=Realtime();
+
+chi:=1-q+pg; 
+
+ 
+F:= "Semi_isog_mix_surf_pg" cat IntegerToString(pg) cat "_q" cat IntegerToString(q) cat  "_Ks" cat IntegerToString(Ksquare) cat ".txt";
+
+fprintf F, "K^2=%o, pg=%o and q=%o\n\n\n", Ksquare,pg,q;
+
+
+Types:=ListTypes(Ksquare, pg,q);
+
+"Number of types", #Types;
+
+ListG0s:=[**]; 
+for T in Types do T;
+	ordG0:=T[#T];
+	if (not IsInSmallGroupDatabase(ordG0))  then 
+		fprintf F, " TO CHECK : %o\n", T;
+	else AdmisG0:=ListGroupsG0(q,Prune(T), ordG0);  
+		if #AdmisG0 ne 0 then	 Append(~ListG0s, [*ordG0, AdmisG0, Prune(T)*]);
+end if; end if; end for;	
+
+"Number of types with a G0:", #ListG0s;
+
+fprintf F,"Types with a G0:%o\n\n\n", ListG0s;
+
+ListG:=[**]; 
+for triple in ListG0s do 
+	ordG:=2*triple[1];
+	if  (not IsInSmallGroupDatabase(ordG))  then 	
+	   fprintf F, "TO CHECK: %o\n", triple;
+	else for x in triple[2] do  
+		printf "Searching extension\n";
+		N:=IntegerRing()!(2*(8*chi-Ksquare)/Theta(q,triple[3]) );
+		Extens:=Extension([triple[1], x] , q,triple[3],N); 
+		if #Extens ne 0 then Append(~ListG, [*Extens, <triple[1], x>,  triple[3]  *]);
+	end if; end for; end if; 
+end for ;
+
+"Number of candidate groups G:", #ListG;
+fprintf F,"Number of candidate groups G:%o\n\n\n", ListG;
+
+New:=0;
+
+for trip in ListG do
+	Ext:=trip[1]; idH:=trip[2];  type:=trip[3]; printf "Checking Groups\n"; trip;
+		for idG in Ext do idG;
+			newsurf:=FindSurfaces(idG, idH, type, Ksquare, pg, q, New, F);
+			New:=New+newsurf;
+end for; end for;
+
+fprintf F,"Time: %o\n", Realtime(RT);
+printf "Time: %o\n", Realtime(RT);
+return "Found ",New," families of surfaces";
+end function;

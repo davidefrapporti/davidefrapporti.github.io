@@ -1,0 +1,56 @@
+// For each of the following inputs run the  commands
+// The funciton "q2Extension" and the procedure "OrbitDivisors" are defined in the file Skript.txt
+
+G0:=sub<G|gv>;
+H,e,Orb:=q2Extension(G0); // constructing a bigger automorphism group
+for w in Orb do OrbitDivisors(G,genus,G0,H,e,w); end for;
+
+
+
+/* We are considering Hurwitz orbits (see Script) of generating vectors for the following reason.
+It is possible that:
+1) 2 different generating vectors gv_1, gv_2 for G^0 <G  define non-isomorphic curves C1 and C2 of the same genus;
+2) the groups H1, H2 we have to consider are equal (H1=H2=:H);
+3) we cannot use the input to distinguish between a generating vector for the covering C1-> C1/H=P^1 and a generating vector for the covering C2-> C2/H.
+
+In this situation the g.v. w_1 for the first covering and the g.v. w_2 for the second covering
+are in different Hurwitz orbit (since C1 and C2 are not isomorphic) of generating vectors of H of given type.
+Whence considering OrbitDivisors(G,genus,q,G0,H,e,w_i) for i=1,2 we deal both cases simultaneously.
+
+If one of the three conditions 1)-3) is not satisfied, then we have get only one orbit.
+*/
+
+
+
+//-------------------------//-------------------------//-------------------------
+//-------------------------//-------------------------//-------------------------
+// CASE K^2=4 p_g=q=2
+//-------------------------//-------------------------//-------------------------
+
+
+// Input 1
+G:=SmallGroup(12, 4);
+gv:=[ G.1 * G.2 * G.3^2, Id(G), G.3^2, G.3 ];
+genus:=7;
+
+
+//-------------------------//-------------------------//-------------------------
+//-------------------------//-------------------------//-------------------------
+//CASEK^2=2 p_g=q=2
+//-------------------------//-------------------------//-------------------------
+
+// Input 1
+G:=SmallGroup(16,13); genus:=9;
+gv:= [ G.1 * G.3, G.2 * G.3, G.2 * G.3 * G.4, G.1 * G.3 * G.4 ];
+
+
+// Input 2-3:  here we are in the situation described above
+
+G:=SmallGroup(16,11); genus:=9;
+gv:= [ Id(G), G.1 * G.2 * G.4, Id(G), G.1 ];
+
+gv:= [ G.2 * G.3, G.1 * G.4, G.2 * G.3, G.1 * G.2 * G.3 * G.4 ];
+
+
+
+

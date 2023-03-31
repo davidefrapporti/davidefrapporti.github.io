@@ -1,0 +1,20 @@
+// For each of the following inputs run the  commands
+// The procedure "OrbitDivisors" is defined in the file Skript.txt
+
+G0:=sub<G|gv>; H:=G0; e:=Identity(AutomorphismGroup(G0)); w:=gv;
+OrbitDivisors(G,genus,G0,H,e,w);
+
+
+//-------------------------//-------------------------//-------------------------
+//-------------------------//-------------------------//-------------------------
+//K^2=2, p_g=q=0
+//-------------------------//-------------------------//-------------------------
+
+// Input 1:
+G:=SmallGroup(256, 47930); genus:=33;
+gv:=[ G.2 * G.5 * G.6 * G.7 * G.8, G.1 * G.3 * G.7, G.2 * G.3 * G.4 * G.5 * G.8, G.1 * G.2 * G.5 * G.6 * G.8, G.2 * G.4 * G.5 * G.6 ];
+
+
+// Input 2:
+G:=SmallGroup(256, 45303); genus:=33;
+gv:=[ G.1 * G.2 * G.3 * G.5 * G.6 * G.7 * G.8, G.3 * G.5 * G.6, G.3 * G.6, G.2 * G.4 * G.5 * G.6 * G.7, G.1 * G.3 * G.4 * G.5 ];
