@@ -1,8 +1,9 @@
-/* The main functions of the script are
-1) the procedure OrbitDivisors, and
-2) the functions "q1Extension" and "q2Extension",  which are defined at the bottom of the file.
+/* Magma is a licensed software, but short scripts can be run freely using the online calculator available at http://magma.maths.usyd.edu.au/calc/.
 
-Magma is  a licensed software, but short scripts can be run freely using the online calculator available at http://magma.maths.usyd.edu.au/calc/.
+The main functions of the script are
+1) the procedure OrbitDivisors, which computes the orbits divisors (induced by H) and detects among them the (-1)-curves;
+2) the functions "q1Extension" and "q2Extension". These are defined at the bottom of the file, and are used in case of generating vectors of type [1;m,m], resp. [2,-]
+   to determine the  degree 2 extensions of G^0, determined  by the lifts of the involution \sigma. Recall that \sigma is the involution swapping the 2 branch points, respectively the hyperelliptic involution.
 */
 
 //-------------------------//-------------------------//-------------------------
