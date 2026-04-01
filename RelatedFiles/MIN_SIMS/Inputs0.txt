@@ -1,5 +1,5 @@
-// For each of the following inputs run the  commands
-// The procedure "OrbitDivisors" is defined in the file Script.txt
+// The procedure "OrbitDivisors" used here is defined in the file Script.txt, which must be load in advance.
+// Then, for each of the following inputs run the following commands.
 
 G0:=sub<G|gv>; H:=G0; e:=Identity(AutomorphismGroup(G0)); w:=gv;
 OrbitDivisors(G,genus,G0,H,e,w);
