@@ -1,10 +1,9 @@
-// For each of the following inputs run the  commands.
-// Reminder: The funciton "q2Extension" and the procedure "OrbitDivisors" are defined in the file Script.txt
+// The function "q2Extension" and the procedure "OrbitDivisors" are defined in the file Script.txt, which must be load in advance.
+// Then, for each of the following inputs run the following commands.
 
 G0:=sub<G|gv>;
 H,e,Orb:=q2Extension(G0); // constructing a bigger automorphism group
 for w in Orb do OrbitDivisors(G,genus,G0,H,e,w); end for;
-
 
 
 /* We are considering Hurwitz orbits (see Script) of generating vectors for the following reason.
