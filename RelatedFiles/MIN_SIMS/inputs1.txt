@@ -1,0 +1,120 @@
+// The function "q1Extension" and the procedure "OrbitDivisors" are defined in the file script.txt, which must be load in advance.
+// Then, for each of the following inputs run the following commands.
+
+
+G0:=sub<G|gv>;
+H,e,HOrb:=q1Extension(G0,gv); // constructing a bigger automorphism group
+for w in HOrb do OrbitDivisors(G,genus,G0,H,e,w); end for;
+
+/* 
+
+HOrb stands for Hurwitz orbits.
+As explained in [CF18, Section 6.2], (see also [BC04, BCG08]), generating vectors for a group H, 
+of type (0; m_1,..., m_r), which differ by a Huwitz move or an automorphism of H yield isomorphic covers
+C->C/H = P^1, hence we shall consider only one representative for each orbit of the group action induced by automorphisms and Huwitz moves.
+
+As expected, in each case we shall indeed get a single orbit.
+*/
+
+
+//-------------------------//-------------------------//-------------------------
+//-------------------------//-------------------------//-------------------------
+// CASE K^2=4, p_g=q=1
+//-------------------------//-------------------------//-------------------------
+
+// Input 1
+G:=SmallGroup(48,38); genus:=13;
+gv:= [ G.1 * G.5, G.2 * G.4, G.1 * G.2 * G.5^2, G.1 * G.2 * G.5^2 ];
+
+
+// Intput 2
+G:=SmallGroup(48,37); genus:=13;
+gv:=[ G.4 * G.5^2, G.2 * G.4 * G.5, G.1 * G.2 * G.3 * G.4 * G.5, G.1 * G.2 * G.3 * G.4 * G.5 ];
+
+
+//-------------------------//-------------------------//-------------------------
+//-------------------------//-------------------------//-------------------------
+// CASE K^2=2, p_g=q=1
+//-------------------------//-------------------------//-------------------------
+
+// Input 1
+G:=SmallGroup(64, 153); genus:=17;
+gv:=[ G.1 * G.2 * G.3 * G.4, G.1, G.1, G.1 * G.4 * G.5 ];
+
+
+// Input 2
+G:=SmallGroup(64, 150); genus:=17;
+gv:=[ G.2 * G.3 * G.4 * G.6, G.2 * G.3 * G.4 * G.5, G.1 * G.2 * G.6, G.1 * G.2 * G.6 ];
+
+
+// Input 3
+G:=SmallGroup(64, 147); genus:=17;
+gv:= [ G.2 * G.3 * G.4 * G.6, G.2 * G.3 * G.4 * G.5, G.1 * G.2 * G.6, G.1 * G.2 * G.6 ]; 
+
+
+// Input 4
+G:=SmallGroup(64, 128); genus:=17;
+gv:=[ G.1 * G.2 * G.3 * G.4 * G.6, G.1, G.1 * G.4, G.1 * G.5 ];
+
+
+// Input 5
+G:=SmallGroup(64, 130); genus:=17;
+gv:= [ G.4 * G.6, G.1 * G.2 * G.3 * G.6, G.1 * G.5 * G.6, G.1 * G.5 * G.6 ];
+
+
+// Input 6
+G:=SmallGroup(64, 134); genus:=17;
+gv:=[ G.1 * G.2 * G.3 * G.6, G.5, G.1 * G.4, G.1 * G.4 * G.6 ];
+
+
+// Input 7
+G:=SmallGroup(64, 227); genus:=17;
+gv:= [ G.2 * G.3 * G.6, G.1 * G.2 * G.4 * G.6, G.2 * G.5 * G.6, G.2 * G.5 ];
+
+
+// Input 8
+G:=SmallGroup(64, 227); genus:=17;
+gv:= [ G.1 * G.4 * G.6, G.3 * G.6, G.3 * G.4 * G.5, G.3 * G.4 * G.5 * G.6 ];
+
+
+// Input 9
+G:=SmallGroup(64, 228); genus:=17;
+gv:=[ G.1 * G.2 * G.3 * G.4 * G.5 * G.6, G.1 * G.2 * G.4, G.2 * G.5 * G.6, G.2 * G.5 ];
+
+
+// Input 10
+G:=SmallGroup(64, 234); genus:=17;
+gv:=[ G.4 * G.5, G.2, G.3 * G.6, G.3 * G.5 * G.6 ];
+
+
+// Input 11
+G:=SmallGroup(64, 234); genus:=17;
+gv:=[ G.1 * G.2 * G.4 * G.5, G.2 * G.5, G.1, G.1 ];
+
+
+// Input 12
+G:=SmallGroup(64, 236); genus:=17;
+gv:= [ G.2 * G.3 * G.4 * G.5, G.2 * G.4 * G.5, G.3 * G.4 * G.5, G.3 * G.4 * G.5 ];
+
+
+// Input 13
+G:=SmallGroup(64, 219); genus:=17;
+gv:=[ G.1 * G.3, G.1 * G.3 * G.4 * G.6, G.1 * G.2 * G.3 * G.5, G.1 * G.2 * G.3 ];
+
+ 
+// Input 14
+G:=SmallGroup(64, 221); genus:=17;
+gv:=[ G.1 * G.3, G.1 * G.3 * G.4 * G.6, G.1 * G.2 * G.3 * G.5, G.1 * G.2 * G.3 ];
+
+ 
+// Input 15
+G:=SmallGroup(64, 213); genus:=17;
+gv:= [ G.1 * G.2 * G.4 * G.6, G.1 * G.2 * G.3 * G.6, G.1 * G.2 * G.3 * G.4 * G.5 * G.6, G.1 * G.2 * G.3 * G.4 * G.5 ];
+
+
+// Input 16
+G:=SmallGroup(64, 206); genus:=17;
+gv:=[ G.1 * G.2 * G.3 * G.4 * G.5, G.1 * G.2 * G.5 * G.6, G.1 * G.2 * G.4, G.1 * G.2 * G.4 * G.6 ];
+
+
+
